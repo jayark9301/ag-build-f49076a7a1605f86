@@ -1,0 +1,56 @@
+name: Build VST3 / AU
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+          - name: Windows
+            os: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE
+        id: cache-juce
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/JUCE
+          key: JUCE-7.0.9
+
+      - name: Clone JUCE
+        if: steps.cache-juce.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch 7.0.9 https://github.com/juce-framework/JUCE.git ${{ runner.temp }}/JUCE
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_JUCE=${{ runner.temp }}/JUCE
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload macOS
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Velvet-macOS
+          path: |
+            build/Velvet_artefacts/Release/VST3/
+            build/Velvet_artefacts/Release/AU/
+          if-no-files-found: warn
+
+      - name: Upload Windows
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Velvet-Windows
+          path: build\\Velvet_artefacts\\Release\\VST3\\
+          if-no-files-found: warn
